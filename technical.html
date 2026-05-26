@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Creative Hub — Technical Deep Dive</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:     #0f1117;
+  --sur:    #161b22;
+  --card:   #1c2128;
+  --border: #30363d;
+  --green:  #3fb950;
+  --blue:   #58a6ff;
+  --amber:  #e3b341;
+  --red:    #f85149;
+  --purple: #bc8cff;
+  --cyan:   #39d0d8;
+  --text:   #e6edf3;
+  --muted:  #8b949e;
+  --r:      6px;
+}
+
+html, body {
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 18px;
+}
+
+#deck { position: relative; width: 100vw; height: 100vh; }
+
+.slide {
+  position: absolute; inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: none;
+  overflow: hidden;
+}
+.slide.active { opacity: 1; pointer-events: auto; }
+
+/* ── Header strip ── */
+.sh {
+  padding: 22px 64px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--sur);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.sh-left { display: flex; flex-direction: column; gap: 3px; }
+.eyebrow {
+  font-size: 13px; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase;
+  color: var(--green);
+}
+.sh h2 {
+  font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+  font-weight: 700; line-height: 1.2;
+}
+.sh-num { font-size: 14px; color: var(--muted); white-space: nowrap; padding-bottom: 2px; }
+
+/* ── Body ── */
+.sb {
+  padding: 20px 64px 56px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* ── Grid layouts ── */
+.g2  { display: grid; grid-template-columns: 1fr 1fr;    gap: 16px; }
+.g3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.g2w { display: grid; grid-template-columns: 1fr 1.5fr;  gap: 16px; }
+.g2n { display: grid; grid-template-columns: 1.5fr 1fr;  gap: 16px; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Card ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 16px 18px;
+}
+.card-g { border-left: 3px solid var(--green); border-radius: 0 var(--r) var(--r) 0; }
+.card-b { border-left: 3px solid var(--blue);  border-radius: 0 var(--r) var(--r) 0; }
+.card-a { border-left: 3px solid var(--amber); border-radius: 0 var(--r) var(--r) 0; }
+.card-p { border-left: 3px solid var(--purple);border-radius: 0 var(--r) var(--r) 0; }
+.card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+
+/* ── Lists ── */
+ul.cl { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+ul.cl li { display: flex; gap: 8px; font-size: 15.5px; color: var(--muted); line-height: 1.5; }
+ul.cl li::before { content: '›'; color: var(--green); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+ul.cl li strong { color: var(--text); }
+
+/* ── Code ── */
+pre {
+  background: #010409; border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px 16px;
+  font-family: 'Cascadia Code','Fira Code',Consolas,monospace;
+  font-size: 14.5px; line-height: 1.7; color: #adbac7;
+  overflow: auto;
+}
+.kw { color: #ff7b72; }
+.fn { color: #79c0ff; }
+.st { color: #a5d6ff; }
+.cm { color: #3d444d; }
+.ty { color: #ffa657; }
+.gr { color: #3fb950; }
+.pu { color: #d2a8ff; }
+
+code {
+  font-family: 'Cascadia Code','Fira Code',Consolas,monospace;
+  font-size: 14px; background: #010409; padding: 1px 6px;
+  border-radius: 4px; color: #adbac7; border: 1px solid var(--border);
+}
+
+/* ── Info / note boxes ── */
+.info  { background: #0c1e38; border: 1px solid #1a3060; border-radius: var(--r); padding: 11px 14px; font-size: 15px; color: #58a6ff; line-height: 1.55; }
+.note  { background: #1a2012; border: 1px solid #2a4020; border-radius: var(--r); padding: 11px 14px; font-size: 15px; color: #8fcc70; line-height: 1.55; }
+.warn  { background: #2a1a04; border: 1px solid #5a3808; border-radius: var(--r); padding: 11px 14px; font-size: 15px; color: #e3b341; line-height: 1.55; }
+
+/* ── Flow / pipeline ── */
+.flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fbox {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 9px 14px;
+  font-size: 15px; font-weight: 600; text-align: center; min-width: 100px;
+}
+.fbox small { display: block; font-size: 12.5px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+.farr { color: var(--green); font-size: 16px; font-weight: 700; flex-shrink: 0; }
+.farrd { color: var(--muted); font-size: 16px; }
+
+/* ── Layer diagram ── */
+.layers { display: flex; flex-direction: column; gap: 6px; }
+.layer {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 18px;
+}
+.layer-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; flex-shrink: 0;
+}
+.layer-label { font-weight: 700; font-size: 16px; min-width: 160px; }
+.layer-desc  { font-size: 15px; color: var(--muted); line-height: 1.4; }
+
+/* ── Entity boxes (DB diagram) ── */
+.ent {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; font-size: 14.5px;
+}
+.ent-head {
+  padding: 7px 12px; font-size: 13px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); background: var(--sur);
+}
+.ent-body { padding: 8px 12px; color: var(--muted); line-height: 1.8; }
+.ent-body span { color: var(--text); }
+
+/* ── Decision tree ── */
+.dtree { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dnode {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 40px; padding: 8px 22px;
+  font-size: 15px; font-weight: 600; text-align: center;
+}
+.dnode.q   { border-color: var(--amber); color: var(--amber); background: #2a1a04; }
+.dnode.yes { border-color: var(--green); color: var(--green); background: #1a2012; }
+.dnode.no  { border-color: var(--red);   color: var(--red);   background: #2a0a0a; }
+.drow { display: flex; align-items: flex-start; gap: 24px; justify-content: center; width: 100%; }
+.dbranch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dlabel { font-size: 13px; color: var(--muted); text-align: center; }
+.dvline { width: 1px; height: 18px; background: var(--border); }
+.dhline { height: 1px; background: var(--border); width: 50px; }
+
+/* ── Tag pills ── */
+.tag { background: var(--card); border: 1px solid var(--border); border-radius: 40px; padding: 5px 14px; font-size: 15px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 7px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Summary rows ── */
+.sr { display: flex; align-items: flex-start; gap: 13px; padding: 11px 15px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r); }
+.sn { width: 26px; height: 26px; border-radius: 50%; background: #0f2d13; color: var(--green); font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid #1a4a1e; margin-top: 1px; }
+.sr p { font-size: 15.5px; color: var(--muted); line-height: 1.5; }
+.sr p strong { color: var(--text); }
+
+/* ── Cover ── */
+.cover-body { padding: 0 64px; display: flex; flex-direction: column; justify-content: center; height: 100%; }
+
+/* ── Progress bar ── */
+#bar { position: fixed; top: 0; left: 0; height: 2px; background: var(--green); transition: width .28s ease; z-index: 99; }
+
+/* ── Nav ── */
+#nav { position: fixed; bottom: 16px; right: 20px; display: flex; align-items: center; gap: 8px; background: var(--sur); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 12px; z-index: 99; }
+.btn { width: 30px; height: 30px; border-radius: var(--r); border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.btn:hover:not(:disabled) { background: var(--green); border-color: var(--green); color: #000; }
+.btn:disabled { opacity: .2; cursor: default; }
+#ctr { font-size: 14px; color: var(--muted); min-width: 38px; text-align: center; }
+#hint { position: fixed; bottom: 22px; left: 20px; font-size: 13px; color: var(--muted); opacity: .4; }
+</style>
+</head>
+<body>
+
+<div id="bar"></div>
+<div id="deck">
+
+
+<!-- ════ 1 — Cover ════ -->
+<section class="slide active">
+  <div id="cube-mount" style="position:absolute;right:0;top:0;width:52%;height:100%;pointer-events:none;z-index:0"></div>
+  <div class="sh" style="position:relative;z-index:2">
+    <div class="sh-left">
+      <div class="eyebrow">Technical Deep Dive</div>
+      <h2 style="font-size:clamp(1.8rem,3vw,2.5rem)">Creative Hub</h2>
+    </div>
+    <div class="sh-num">1 / 15</div>
+  </div>
+  <div class="cover-body" style="max-width:58%;position:relative;z-index:2">
+    <p style="font-size:1rem;color:var(--muted);max-width:600px;line-height:1.8;margin-bottom:24px">
+      This deck goes into <strong style="color:var(--text)">how it's actually built</strong> — the architecture decisions, middleware chains, type system, data flow, and the patterns that hold everything together.
+    </p>
+    <div class="tag-row" style="margin-bottom:28px;justify-content:flex-start">
+      <span class="tag"><span class="dot" style="background:var(--green)"></span>React 18 + TypeScript</span>
+      <span class="tag"><span class="dot" style="background:var(--blue)"></span>Node.js + Express</span>
+      <span class="tag"><span class="dot" style="background:var(--amber)"></span>MongoDB + Mongoose</span>
+      <span class="tag"><span class="dot" style="background:var(--purple)"></span>JWT + bcrypt</span>
+      <span class="tag"><span class="dot" style="background:var(--cyan)"></span>Zod</span>
+      <span class="tag"><span class="dot" style="background:var(--muted)"></span>Swagger</span>
+    </div>
+    <div class="g3">
+      <div class="card card-b"><h3>Backend</h3><ul class="cl"><li>Express sub-router pattern</li><li>Layered middleware security</li><li>asyncHandler + ApiError</li></ul></div>
+      <div class="card card-g"><h3>Frontend</h3><ul class="cl"><li>AuthContext + navigation guards</li><li>Single Responsibility hooks</li><li>Typed API client</li></ul></div>
+      <div class="card card-a"><h3>Data</h3><ul class="cl"><li>MongoDB Atlas, 8 collections</li><li>InferSchemaType pattern</li><li>Zod validation on every route</li></ul></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 2 — Architecture Overview ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Architecture</div>
+      <h2>Three-layer architecture — and what lives in each</h2>
+    </div>
+    <div class="sh-num">2 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- 3 layer boxes side by side -->
+    <div class="g3">
+      <div class="card" style="border-top:3px solid var(--blue)">
+        <h3 style="color:var(--blue)">Browser — React SPA</h3>
+        <ul class="cl">
+          <li>Vite build, served as static files</li>
+          <li>AuthProvider wraps the whole app</li>
+          <li>JWT token lives in localStorage</li>
+          <li>Every API call adds Bearer header</li>
+          <li>ProtectedRoute + RoleRoute guard pages</li>
+        </ul>
+      </div>
+      <div class="card" style="border-top:3px solid var(--green)">
+        <h3 style="color:var(--green)">Express API — Node.js</h3>
+        <ul class="cl">
+          <li>Security layer runs before any route</li>
+          <li>requireAuth verifies JWT on every call</li>
+          <li>Zod validates the request body</li>
+          <li>Controllers talk to Mongoose models</li>
+          <li>asyncHandler forwards errors to handler</li>
+        </ul>
+      </div>
+      <div class="card" style="border-top:3px solid var(--amber)">
+        <h3 style="color:var(--amber)">MongoDB Atlas — Cloud DB</h3>
+        <ul class="cl">
+          <li>8 collections, ObjectId references</li>
+          <li>Mongoose schemas define the shape</li>
+          <li>InferSchemaType generates TS types</li>
+          <li>.lean() for read-only queries</li>
+          <li>timestamps: true on every schema</li>
+        </ul>
+      </div>
+    </div>
+    <!-- request flow pipeline -->
+    <div class="card" style="padding:14px 18px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Every request travels this path</div>
+      <div class="flow" style="justify-content:center;gap:6px">
+        <div class="fbox" style="border-color:#1a3060;background:#0c1e38;color:var(--blue)">Browser<small>React SPA</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">Helmet + CORS<small>security headers</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">Rate Limiter<small>600 req / 15 min</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">requireAuth<small>JWT + DB check</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">validateBody<small>Zod schema</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">Controller<small>business logic</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:#483402;background:#2a1a04;color:var(--amber)">MongoDB<small>Atlas cloud</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 3 — TypeScript Type Flow ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">TypeScript</div>
+      <h2>Types are generated from schemas — one source, no duplication</h2>
+    </div>
+    <div class="sh-num">3 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- Type flow diagram -->
+    <div class="card" style="padding:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">Type flow: Schema → TypeScript → React</div>
+      <div class="flow" style="justify-content:center;gap:10px">
+        <div class="fbox" style="border-color:var(--amber);background:#1a1200;color:var(--amber);min-width:130px">Mongoose Schema<small>defines fields &amp; types</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--purple);background:#120d1a;color:var(--purple);min-width:130px">InferSchemaType<small>generates TS type</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--green);background:#0f1a0a;color:var(--green);min-width:130px">API Response<small>serialised safely</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--blue);background:#0a1020;color:var(--blue);min-width:130px">api&lt;T&gt; call<small>typed at fetch</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--cyan);background:#071214;color:var(--cyan);min-width:130px">React Component<small>knows the shape</small></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="col">
+        <div class="card card-a">
+          <h3>Schema is the single source of truth</h3>
+          <pre style="font-size:12px;padding:10px 12px"><span class="kw">const</span> userSchema = <span class="kw">new</span> <span class="fn">Schema</span>({
+  email: { type: <span class="ty">String</span>, required: <span class="kw">true</span> },
+  role:  { type: <span class="ty">String</span>,
+           enum: [<span class="st">"client"</span>, <span class="st">"designer"</span>] },
+})
+
+<span class="kw">export type</span> <span class="ty">UserDoc</span> =
+  <span class="fn">InferSchemaType</span>&lt;<span class="kw">typeof</span> userSchema&gt;
+<span class="cm">// → { email: string, role: "client"|"designer" }</span></pre>
+        </div>
+        <div class="info">When the schema changes, the TypeScript type updates automatically. TypeScript then flags every caller that breaks — no manual type syncing needed.</div>
+      </div>
+      <div class="col">
+        <div class="card card-b">
+          <h3>Frontend typed API client</h3>
+          <pre style="font-size:12px;padding:10px 12px"><span class="cm">// One generic fetch wrapper</span>
+<span class="kw">async function</span> <span class="fn">api</span>&lt;<span class="ty">T</span>&gt;(path: <span class="ty">string</span>): <span class="ty">Promise</span>&lt;<span class="ty">T</span>&gt; {
+  <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(BASE + path, {
+    headers: { Authorization: <span class="st">`Bearer ${token}`</span> }
+  })
+  <span class="kw">return</span> res.<span class="fn">json</span>() <span class="kw">as</span> <span class="ty">Promise</span>&lt;<span class="ty">T</span>&gt;
+}
+
+<span class="cm">// Fully typed — no any, no casting</span>
+<span class="kw">const</span> user = <span class="kw">await</span> <span class="fn">api</span>&lt;<span class="ty">AuthUser</span>&gt;(<span class="st">"/auth/me"</span>)</pre>
+        </div>
+        <div class="note">Because the type flows all the way from the DB schema to the React consumer, a renamed field in the schema becomes a TypeScript error in the component — caught at compile time, not at runtime.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 4 — Auth Flow ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Authentication</div>
+      <h2>How registration and login work</h2>
+    </div>
+    <div class="sh-num">4 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- Registration flow -->
+    <div class="card" style="padding:16px 18px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">Registration flow</div>
+      <div class="flow" style="justify-content:center;gap:6px">
+        <div class="fbox">POST /auth/register<small>email, password, name, role</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--amber);color:var(--amber)">Zod validates body<small>role: client|designer only</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">Check duplicate<small>findOne by email</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--purple);color:var(--purple)">bcrypt.hash(pw, 10)<small>never store plaintext</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--green);color:var(--green)">jwt.sign()<small>7 day token</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">201 { token, user }</div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="col">
+        <!-- Login flow -->
+        <div class="card" style="padding:14px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Login flow</div>
+          <div class="flow" style="gap:6px">
+            <div class="fbox">POST /auth/login</div>
+            <div class="farr">→</div>
+            <div class="fbox">findOne(email)</div>
+            <div class="farr">→</div>
+            <div class="fbox" style="border-color:var(--purple);color:var(--purple)">bcrypt.compare()</div>
+            <div class="farr">→</div>
+            <div class="fbox" style="border-color:var(--green);color:var(--green)">jwt.sign()</div>
+          </div>
+        </div>
+        <div class="card card-g">
+          <h3>JWT payload — minimal</h3>
+          <pre style="font-size:12px;padding:10px 12px">jwt.<span class="fn">sign</span>(
+  { sub: <span class="ty">String</span>(user._id),
+    role: user.role },
+  JWT_ACCESS_SECRET,
+  { expiresIn: <span class="st">"7d"</span> }
+)</pre>
+          <ul class="cl" style="margin-top:8px">
+            <li>Only <code>sub</code> (userId) and <code>role</code> in payload</li>
+            <li>Minimal exposure if token is intercepted</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-b">
+          <h3>Key decisions explained</h3>
+          <ul class="cl">
+            <li><strong>bcrypt cost 10</strong> — slow enough to resist brute force, fast enough for UX (takes ~100ms)</li>
+            <li><strong>Email lowercased</strong> on save — prevents duplicate accounts with different casing</li>
+            <li><strong>Role chosen at registration</strong> — no admin self-registration, not offered in the UI form</li>
+            <li><strong>7-day expiry</strong> — balance between security and not forcing re-login constantly</li>
+          </ul>
+        </div>
+        <div class="warn">The JWT payload carries the role so the frontend knows which dashboard to render immediately — but the backend <strong>re-fetches the role from MongoDB on every request</strong> to prevent stale data. See slide 5.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 5 — requireAuth Middleware ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Middleware</div>
+      <h2>requireAuth — why it re-fetches from the database every time</h2>
+    </div>
+    <div class="sh-num">5 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2n">
+      <!-- Decision diagram -->
+      <div class="col">
+        <div class="card" style="padding:16px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">requireAuth decision path</div>
+          <div class="dtree">
+            <div class="fbox" style="min-width:220px">Incoming request with Authorization header</div>
+            <div class="dvline"></div>
+            <div class="dnode q">Starts with "Bearer "?</div>
+            <div class="dvline"></div>
+            <div class="drow">
+              <div class="dbranch">
+                <div class="dnode no">No</div>
+                <div class="dvline"></div>
+                <div class="fbox" style="border-color:var(--red);color:var(--red);font-size:12px">401 Missing token</div>
+              </div>
+              <div class="dbranch">
+                <div class="dnode yes">Yes → jwt.verify()</div>
+                <div class="dvline"></div>
+                <div class="dnode q">Token valid &amp; not expired?</div>
+                <div class="dvline"></div>
+                <div class="drow">
+                  <div class="dbranch">
+                    <div class="dnode no">No</div>
+                    <div class="dvline"></div>
+                    <div class="fbox" style="border-color:var(--red);color:var(--red);font-size:12px">401 Invalid token</div>
+                  </div>
+                  <div class="dbranch">
+                    <div class="dnode yes">Yes → DB lookup</div>
+                    <div class="dvline"></div>
+                    <div class="dnode q">User still exists?</div>
+                    <div class="dvline"></div>
+                    <div class="drow">
+                      <div class="dbranch">
+                        <div class="dnode no">No → 401</div>
+                      </div>
+                      <div class="dbranch">
+                        <div class="dnode yes">Yes</div>
+                        <div class="dvline"></div>
+                        <div class="fbox" style="border-color:var(--green);color:var(--green);font-size:12px">req.user = { id, role } → next()</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Why the DB re-fetch?</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6">A JWT is self-contained and valid until expiry — <code>jwt.verify()</code> doesn't touch the database. That means if a user is deleted or their role changes, the token <strong style="color:var(--text)">would still pass verification</strong> for the remaining 7 days. Re-fetching from MongoDB makes the check live — deleted users are blocked instantly.</p>
+        </div>
+        <div class="card card-b">
+          <h3>TypeScript augmentation</h3>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5">Express's <code>Request</code> type doesn't have a <code>user</code> property. The project extends it:</p>
+          <pre style="font-size:12px;padding:10px 12px"><span class="cm">// types/express-augment.ts</span>
+<span class="kw">declare global</span> {
+  <span class="kw">namespace</span> <span class="ty">Express</span> {
+    <span class="kw">interface</span> <span class="ty">Request</span> {
+      user?: { id: <span class="ty">string</span>; role: <span class="ty">AppUserRole</span> }
+    }
+  }
+}</span></pre>
+          <p style="font-size:12.5px;color:var(--muted);margin-top:8px">Every controller reads <code>req.user</code> with full type safety — TypeScript knows the shape.</p>
+        </div>
+        <div class="info">Only <code>role</code> is selected from the DB (<code>.select("role")</code>) — a targeted query, not fetching the entire user document on every request.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 6 — Zod Validation ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Validation</div>
+      <h2>Zod — every request body validated before the controller sees it</h2>
+    </div>
+    <div class="sh-num">6 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- Middleware pipeline -->
+    <div class="card" style="padding:14px 18px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Middleware chain on a POST /briefs request</div>
+      <div class="flow" style="justify-content:center;gap:6px">
+        <div class="fbox">raw req.body<small>unknown shape</small></div>
+        <div class="farr">→</div>
+        <div class="fbox" style="border-color:var(--amber);color:var(--amber)">validateBody(createBriefBody)<small>Zod safeParse()</small></div>
+        <div class="farr">→</div>
+        <div class="drow" style="gap:0">
+          <div class="dbranch" style="gap:4px">
+            <div class="dnode no" style="font-size:12px;padding:5px 14px">fail → 400 + error message</div>
+          </div>
+        </div>
+        <div class="farrd">|</div>
+        <div class="fbox" style="border-color:var(--green);color:var(--green)">req.body = result.data<small>clean, coerced, typed</small></div>
+        <div class="farr">→</div>
+        <div class="fbox">createBrief controller<small>receives safe data</small></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="col">
+        <div class="card card-a">
+          <h3>What a Zod schema looks like</h3>
+          <pre style="font-size:12px;padding:10px 12px"><span class="kw">export const</span> createBriefBody = z.<span class="fn">object</span>({
+  title:       z.<span class="fn">string</span>().<span class="fn">min</span>(<span class="ty">1</span>),
+  designType:  z.<span class="fn">enum</span>([<span class="st">"logo"</span>, <span class="st">"poster"</span>,
+                 <span class="st">"branding"</span>, <span class="st">"social-media"</span>, <span class="st">"website"</span>]),
+  deadline:    z.coerce.<span class="fn">date</span>(),  <span class="cm">// "2025-06-01" → Date</span>
+  budget:      z.<span class="fn">number</span>().<span class="fn">optional</span>(),
+})
+
+<span class="cm">// .partial() reuses the schema for PATCH</span>
+<span class="kw">export const</span> updateBriefBody = createBriefBody.<span class="fn">partial</span>()</pre>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>What validateBody actually does</h3>
+          <ul class="cl">
+            <li><strong>Rejects bad data early</strong> — controller never receives malformed input</li>
+            <li><strong>Coerces types</strong> — <code>z.coerce.date()</code> converts ISO strings to real Date objects</li>
+            <li><strong>Applies defaults</strong> — optional fields with defaults are filled in automatically</li>
+            <li><strong>Writes clean data back</strong> — <code>req.body = result.data</code> so controllers always have safe input</li>
+          </ul>
+        </div>
+        <div class="note"><code>createBriefBody.partial()</code> makes every field optional — one schema definition powers both the POST (all required) and the PATCH (all optional). No duplication.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 7 — Database Design ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Database</div>
+      <h2>MongoDB — 8 collections connected by ObjectId references</h2>
+    </div>
+    <div class="sh-num">7 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- Entity diagram -->
+    <div class="g2" style="align-items:start">
+      <div class="col">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="ent">
+            <div class="ent-head" style="color:var(--blue)">User</div>
+            <div class="ent-body"><span>_id</span>, email, passwordHash, <span>role</span>, name</div>
+          </div>
+          <div class="ent">
+            <div class="ent-head" style="color:var(--amber)">Brief</div>
+            <div class="ent-body"><span>clientId →User</span>, title, designType, status, deadline, budget</div>
+          </div>
+          <div class="ent" style="grid-column:1/-1">
+            <div class="ent-head" style="color:var(--green)">Project</div>
+            <div class="ent-body"><span>ownerId →User</span>, <span>briefId →Brief</span>, title, status, price, timestamps</div>
+          </div>
+          <div class="ent">
+            <div class="ent-head" style="color:var(--purple)">ProjectMember</div>
+            <div class="ent-body"><span>projectId →Project</span>, <span>userId →User</span>, memberRole</div>
+          </div>
+          <div class="ent">
+            <div class="ent-head" style="color:var(--cyan)">Column</div>
+            <div class="ent-body"><span>projectId →Project</span>, title, order</div>
+          </div>
+          <div class="ent">
+            <div class="ent-head" style="color:var(--muted)">Task</div>
+            <div class="ent-body"><span>columnId →Column</span>, <span>assigneeId →User</span>, title, dueDate, labels</div>
+          </div>
+          <div class="ent">
+            <div class="ent-head" style="color:var(--green)">Asset</div>
+            <div class="ent-body"><span>projectId →Project</span>, url, filename, tags</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Document relationship flow</h3>
+          <div class="flow" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="color:var(--blue);font-weight:700">User</span>
+              <span class="farrd">→</span>
+              <span style="color:var(--amber)">submits Brief</span>
+              <span class="farrd">→</span>
+              <span style="color:var(--green)">auto-creates Project</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="color:var(--green);font-weight:700">Project</span>
+              <span class="farrd">→</span>
+              <span style="color:var(--purple)">has Members (M:N via ProjectMember)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="color:var(--green);font-weight:700">Project</span>
+              <span class="farrd">→</span>
+              <span style="color:var(--cyan)">has Columns</span>
+              <span class="farrd">→</span>
+              <span>has Tasks</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="color:var(--green);font-weight:700">Project</span>
+              <span class="farrd">→</span>
+              <span>has Assets, linked to an Invoice</span>
+            </div>
+          </div>
+        </div>
+        <div class="card card-b">
+          <h3>Design choices</h3>
+          <ul class="cl">
+            <li><strong>ObjectId refs, not embedding</strong> — briefs and projects grow and change independently</li>
+            <li><strong>ProjectMember</strong> as a join collection — flexible M:N with a memberRole field</li>
+            <li><strong>index: true on ownerId / clientId</strong> — fast queries by owner without full scans</li>
+            <li><strong>timestamps: true</strong> on every schema — free createdAt and updatedAt</li>
+          </ul>
+        </div>
+        <div class="info"><code>InferSchemaType&lt;typeof projectSchema&gt;</code> gives you the TypeScript type directly from the Mongoose schema — no interface to maintain separately.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 8 — Brief → Project Flow ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Core Business Logic</div>
+      <h2>Brief submission auto-creates the entire project workspace</h2>
+    </div>
+    <div class="sh-num">8 / 15</div>
+  </div>
+  <div class="sb">
+    <!-- Timeline diagram -->
+    <div class="card" style="padding:18px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">What happens when a client submits a brief</div>
+      <div class="layers" style="gap:8px">
+        <div class="layer">
+          <div class="layer-num" style="background:#0c1e38;color:var(--blue);border:1px solid #1a3060">1</div>
+          <div class="layer-label" style="color:var(--blue)">Brief saved</div>
+          <div class="layer-desc">BriefModel.create() — status: "submitted", clientId linked to the logged-in user</div>
+        </div>
+        <div class="layer" style="border-color:var(--green)">
+          <div class="layer-num" style="background:#0f1a0a;color:var(--green);border:1px solid #2a4020">2</div>
+          <div class="layer-label" style="color:var(--green)">Draft project created</div>
+          <div class="layer-desc">ProjectModel.create() — status: "draft", briefId linked, price from budget. Wrapped in try/catch so brief saves even if this step fails.</div>
+        </div>
+        <div class="layer">
+          <div class="layer-num" style="background:#120d1a;color:var(--purple);border:1px solid #2a1a40">3</div>
+          <div class="layer-label" style="color:var(--purple)">Client added as lead</div>
+          <div class="layer-desc">MemberModel.create() — projectId + userId (client) + memberRole: "lead"</div>
+        </div>
+        <div class="layer">
+          <div class="layer-num" style="background:#2a1a04;color:var(--amber);border:1px solid #5a3808">4</div>
+          <div class="layer-label" style="color:var(--amber)">4 Kanban columns created</div>
+          <div class="layer-desc">ColumnModel.create() × 4 — "Backlog", "In progress", "Review", "Done" — order 0, 1, 2, 3</div>
+        </div>
+        <div class="layer" style="border-color:var(--cyan)">
+          <div class="layer-num" style="background:#071214;color:var(--cyan);border:1px solid #1a4a50">5</div>
+          <div class="layer-label" style="color:var(--cyan)">Designer accepts</div>
+          <div class="layer-desc">POST /briefs/:id/accept — project status → "in_progress", designer added as member</div>
+        </div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="note">The project workspace exists the moment the brief is submitted — not when a designer picks it up. This means the client already has a project record to track before any designer is involved.</div>
+      <div class="warn">Only designers can accept briefs. The <code>acceptBrief</code> controller checks <code>role !== "admin" &amp;&amp; role !== "designer"</code> — in practice only designers exercise this since admin accounts aren't self-registerable.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 9 — Express Router Architecture ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Backend</div>
+      <h2>Express router nesting — one access check protects all sub-routes</h2>
+    </div>
+    <div class="sh-num">9 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2n">
+      <!-- Router tree diagram -->
+      <div class="col">
+        <div class="card" style="padding:16px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">Router structure</div>
+          <div style="font-family:monospace;font-size:13px;line-height:2;color:var(--muted)">
+            <div><span style="color:var(--green);font-weight:700">/api/projects</span> (router)</div>
+            <div style="padding-left:20px;border-left:1px solid var(--border);margin-left:8px">
+              <div>use(<span style="color:var(--blue)">requireAuth</span>)</div>
+              <div><span style="color:var(--amber)">GET /</span> — list projects</div>
+              <div><span style="color:var(--amber)">POST /</span> — create project</div>
+              <div style="margin-top:6px"><span style="color:var(--green);font-weight:700">/:projectId</span> (byProject sub-router)</div>
+              <div style="padding-left:20px;border-left:1px solid var(--border);margin-left:8px">
+                <div>use(<span style="color:var(--purple)">requireProjectAccess</span>)</div>
+                <div><span style="color:var(--amber)">GET /</span> — get project</div>
+                <div><span style="color:var(--amber)">PATCH /</span> — update project</div>
+                <div><span style="color:var(--amber)">GET /columns</span></div>
+                <div><span style="color:var(--amber)">POST /tasks</span></div>
+                <div><span style="color:var(--amber)">GET /members</span></div>
+                <div><span style="color:var(--amber)">GET /assets</span></div>
+                <div><span style="color:var(--amber)">GET /feedback</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="info"><code>Router({'{'} mergeParams: true {'}'}</code> — the sub-router needs this to read <code>:projectId</code> from the parent URL. Without it, <code>req.params.projectId</code> would be undefined inside <code>byProject</code>.</div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Why sub-router pattern?</h3>
+          <ul class="cl">
+            <li><strong>requireProjectAccess runs once</strong> — all 7 sub-routes are protected automatically, no per-route repetition</li>
+            <li><strong>Middleware order is explicit</strong> — <code>.use()</code> before the routes means it always runs first</li>
+            <li><strong>Clean separation</strong> — top-level router handles list/create, sub-router handles per-resource operations</li>
+          </ul>
+        </div>
+        <div class="card card-b">
+          <h3>requireProjectAccess — what it checks</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">Access is granted if the user is the project <strong style="color:var(--text)">owner</strong> OR has a <strong style="color:var(--text)">ProjectMember</strong> record. Valid JWT + correct role is not enough on its own.</p>
+          <div class="flow" style="gap:6px;flex-wrap:wrap">
+            <div class="fbox" style="font-size:12px">isOwner?</div>
+            <div class="farr">or</div>
+            <div class="fbox" style="font-size:12px">MemberModel.findOne()</div>
+            <div class="farr">→</div>
+            <div class="fbox" style="border-color:var(--green);color:var(--green);font-size:12px">next()</div>
+            <div class="farr">else</div>
+            <div class="fbox" style="border-color:var(--red);color:var(--red);font-size:12px">403</div>
+          </div>
+        </div>
+        <div class="card card-a">
+          <h3>asyncHandler — no try/catch in controllers</h3>
+          <p style="font-size:13px;color:var(--muted);line-height:1.5">Wraps every async controller: <code>Promise.resolve(fn()).catch(next)</code> — uncaught rejections go to <code>errorHandler</code> automatically. <code>throw new ApiError(403, "Forbidden")</code> becomes a proper JSON response.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 10 — Frontend Component Tree ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Frontend Architecture</div>
+      <h2>How the React app is structured</h2>
+    </div>
+    <div class="sh-num">10 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2" style="align-items:start">
+      <!-- Component tree -->
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px">Component tree</div>
+        <div style="font-family:monospace;font-size:13px;line-height:2.2;color:var(--muted)">
+          <div><span style="color:var(--purple);font-weight:700">AuthProvider</span> <span style="font-size:11px">← global auth state</span></div>
+          <div style="padding-left:18px;border-left:1px solid var(--border);margin-left:8px">
+            <div><span style="color:var(--blue)">BrowserRouter</span></div>
+            <div style="padding-left:18px;border-left:1px solid var(--border);margin-left:8px">
+              <div><span style="color:var(--green)">ProtectedRoute</span> <span style="font-size:11px">← is logged in?</span></div>
+              <div style="padding-left:18px;border-left:1px solid var(--border);margin-left:8px">
+                <div><span style="color:var(--green)">RoleRoute roles=["client"]</span> <span style="font-size:11px">← right role?</span></div>
+                <div style="padding-left:18px;border-left:1px solid var(--border);margin-left:8px">
+                  <div><span style="color:var(--amber)">ClientDashboardPage</span></div>
+                  <div><span style="color:var(--amber)">ClientBriefsPage</span></div>
+                  <div><span style="color:var(--amber)">ProjectKanbanPage</span></div>
+                </div>
+                <div><span style="color:var(--cyan)">RoleRoute roles=["designer"]</span></div>
+                <div style="padding-left:18px;border-left:1px solid var(--border);margin-left:8px">
+                  <div><span style="color:var(--amber)">DesignerDashboardPage</span></div>
+                  <div><span style="color:var(--amber)">BriefListPage</span></div>
+                  <div><span style="color:var(--amber)">InvoicesPage</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Shared components + hooks -->
+      <div class="col">
+        <div class="card card-p">
+          <h3>Shared components across both roles</h3>
+          <ul class="cl">
+            <li><strong>LogoMark</strong> — SVG icon component</li>
+            <li><strong>AuthMediaPanel</strong> — side panel on login/register pages</li>
+            <li><strong>DashboardPrimitives</strong> — MetricCard, StatusPill, PageHeader, EmptyState</li>
+            <li><strong>Sidebar</strong> — renders items from <code>useDashboardNav()</code>, no role logic inside</li>
+          </ul>
+        </div>
+        <div class="card card-b">
+          <h3>Custom hooks — logic separated from UI</h3>
+          <ul class="cl">
+            <li><strong>useAuth()</strong> — reads from AuthContext, one consumer interface</li>
+            <li><strong>useDashboardNav()</strong> — returns the right nav links for the current role</li>
+            <li><strong>useRoleArea()</strong> — derives "client" | "designer" from the current URL</li>
+          </ul>
+        </div>
+        <div class="note">Pages contain almost no logic — they call hooks and compose components. Logic lives in hooks, state lives in context, layout lives in primitives. Adding a new page means zero changes to existing components.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 11 — Navigation Guards ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Frontend Routing</div>
+      <h2>Two route guards — session check, then role check</h2>
+    </div>
+    <div class="sh-num">11 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2" style="align-items:start">
+      <div class="col">
+        <!-- Decision tree -->
+        <div class="card" style="padding:16px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">What happens when you navigate to /client/dashboard</div>
+          <div class="dtree">
+            <div class="fbox">User navigates to /client/dashboard</div>
+            <div class="dvline"></div>
+            <div class="dnode q">Loading? (waiting for /auth/me)</div>
+            <div class="dvline"></div>
+            <div class="drow">
+              <div class="dbranch">
+                <div class="dnode yes">Yes → &lt;Spinner /&gt;</div>
+              </div>
+              <div class="dbranch">
+                <div class="dnode no">No</div>
+                <div class="dvline"></div>
+                <div class="dnode q">user !== null?</div>
+                <div class="dvline"></div>
+                <div class="drow">
+                  <div class="dbranch">
+                    <div class="dnode no">No</div>
+                    <div class="dvline"></div>
+                    <div class="fbox" style="border-color:var(--red);color:var(--red);font-size:12px">Navigate to /login<br>state.from saved</div>
+                  </div>
+                  <div class="dbranch">
+                    <div class="dnode yes">Yes (ProtectedRoute ✓)</div>
+                    <div class="dvline"></div>
+                    <div class="dnode q">role === "client"?</div>
+                    <div class="dvline"></div>
+                    <div class="drow">
+                      <div class="dbranch">
+                        <div class="dnode no">No</div>
+                        <div class="dvline"></div>
+                        <div class="fbox" style="border-color:var(--amber);color:var(--amber);font-size:12px">Navigate to<br>homeForRole()</div>
+                      </div>
+                      <div class="dbranch">
+                        <div class="dnode yes">Yes (RoleRoute ✓)</div>
+                        <div class="dvline"></div>
+                        <div class="fbox" style="border-color:var(--green);color:var(--green);font-size:12px">Render page</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Why the loading check matters</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6">On first page load, <code>AuthProvider</code> calls <code>/auth/me</code> to restore the session from a stored token. Until that request resolves, <code>user</code> is <code>null</code> — even for a logged-in user. Without the <code>loading</code> check, every logged-in user would see a flash redirect to <code>/login</code> before the session is restored.</p>
+        </div>
+        <div class="card card-b">
+          <h3>state.from — return to where you were</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6">When an unauthenticated user hits a protected URL, <code>ProtectedRoute</code> saves their intended location in <code>state.from</code>. After login, <code>LoginForm</code> reads this state and redirects them back — instead of always dumping them on the dashboard.</p>
+        </div>
+        <div class="card card-a">
+          <h3>homeForRole</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6">If a designer navigates to <code>/client/dashboard</code>, <code>RoleRoute</code> redirects to <code>homeForRole("designer")</code> = <code>/designer/dashboard</code>. No blank error page — just the right dashboard for their role.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 12 — Security Layers ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Security</div>
+      <h2>Five layers — applied in order, each with a specific job</h2>
+    </div>
+    <div class="sh-num">12 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="layers">
+      <div class="layer" style="border-color:var(--blue)">
+        <div class="layer-num" style="background:#0c1e38;color:var(--blue);border:1px solid #1a3060">1</div>
+        <div class="layer-label" style="color:var(--blue)">Helmet</div>
+        <div class="layer-desc">Sets 11 HTTP security headers in one call — X-Content-Type-Options, X-Frame-Options, HSTS, Referrer-Policy and more. Runs before anything else touches the request.</div>
+      </div>
+      <div class="layer" style="border-color:var(--green)">
+        <div class="layer-num" style="background:#0f1a0a;color:var(--green);border:1px solid #2a4020">2</div>
+        <div class="layer-label" style="color:var(--green)">CORS whitelist</div>
+        <div class="layer-desc">Origin checked against a set built from <code>CORS_ORIGIN</code> env variable. No-origin requests (curl, server-to-server) pass through. Cross-origin requests from unlisted domains are silently rejected. Preflight cached for 24h.</div>
+      </div>
+      <div class="layer" style="border-color:var(--amber)">
+        <div class="layer-num" style="background:#2a1a04;color:var(--amber);border:1px solid #5a3808">3</div>
+        <div class="layer-label" style="color:var(--amber)">Rate limiters</div>
+        <div class="layer-desc"><strong style="color:var(--text)">API routes</strong>: 600 requests / 15 min per IP. <strong style="color:var(--text)">Auth routes</strong> (login/register): 20 requests / 15 min — much stricter to prevent credential brute forcing.</div>
+      </div>
+      <div class="layer" style="border-color:var(--red)">
+        <div class="layer-num" style="background:#2a0a0a;color:var(--red);border:1px solid #5a1010">4</div>
+        <div class="layer-label" style="color:var(--red)">NoSQL Sanitizer</div>
+        <div class="layer-desc">Runs after <code>express.json()</code> — strips <code>$</code> and <code>.</code> keys from request bodies. Blocks MongoDB operator injection attacks like <code>{'{"email": {"$gt": ""}}'}</code> that bypass authentication.</div>
+      </div>
+      <div class="layer" style="border-color:var(--purple)">
+        <div class="layer-num" style="background:#120d1a;color:var(--purple);border:1px solid #2a1a40">5</div>
+        <div class="layer-label" style="color:var(--purple)">Zod per-route</div>
+        <div class="layer-desc">Last line of defence — each route that accepts a body has a Zod schema. Malformed requests are rejected with a 400 and a clear error message before the controller runs any business logic.</div>
+      </div>
+    </div>
+    <div class="info" style="margin-top:4px">The order matters: Helmet and CORS run on the raw request. Rate limiter rejects before parsing. NoSQL sanitizer needs a parsed body. Zod runs per-route after all global middleware.</div>
+  </div>
+</section>
+
+
+<!-- ════ 13 — AuthContext + State ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Frontend State</div>
+      <h2>AuthContext — how auth state reaches every component</h2>
+    </div>
+    <div class="sh-num">13 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2" style="align-items:start">
+      <div class="col">
+        <!-- Context flow diagram -->
+        <div class="card" style="padding:16px 18px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">AuthProvider → consumers</div>
+          <div class="dtree">
+            <div class="fbox" style="border-color:var(--purple);background:#120d1a;color:var(--purple);min-width:240px">AuthProvider<small>{ user, loading, login, logout, register }</small></div>
+            <div class="dvline"></div>
+            <div class="drow" style="gap:16px">
+              <div class="dbranch">
+                <div class="fbox" style="font-size:12px;min-width:110px">ProtectedRoute<small>reads: user, loading</small></div>
+              </div>
+              <div class="dbranch">
+                <div class="fbox" style="font-size:12px;min-width:110px">LoginForm<small>calls: login()</small></div>
+              </div>
+              <div class="dbranch">
+                <div class="fbox" style="font-size:12px;min-width:110px">useAuth()<small>any component</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card card-b">
+          <h3>Session restored on mount</h3>
+          <pre style="font-size:12px;padding:10px 12px"><span class="cm">// On mount: check if stored token still works</span>
+<span class="fn">useEffect</span>(() => {
+  <span class="kw">if</span> (!token) { <span class="fn">setLoading</span>(<span class="kw">false</span>); <span class="kw">return</span> }
+  <span class="fn">api</span>&lt;<span class="ty">AuthUser</span>&gt;(<span class="st">"/auth/me"</span>)
+    .<span class="fn">then</span>(setUser)
+    .<span class="kw">catch</span>(() => {
+      localStorage.<span class="fn">removeItem</span>(<span class="st">"creativehub_token"</span>)
+      <span class="fn">setToken</span>(<span class="kw">null</span>)  <span class="cm">// token expired or revoked</span>
+    })
+    .<span class="kw">finally</span>(() => <span class="fn">setLoading</span>(<span class="kw">false</span>))
+}, [token])</pre>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Why useCallback on login and logout?</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">The context value object is memoised with <code>useMemo</code>. Without <code>useCallback</code>, <code>login</code> and <code>logout</code> would be new function references on every render — making the <code>useMemo</code> comparison always fail and causing every context consumer to re-render.</p>
+          <ul class="cl">
+            <li><strong>useCallback(login)</strong> — stable reference, only changes if dependencies change</li>
+            <li><strong>useMemo(value)</strong> — context object only re-created when user, token, or loading changes</li>
+          </ul>
+        </div>
+        <div class="card card-a">
+          <h3>useAuth — the consumer hook</h3>
+          <p style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">Components never import <code>AuthContext</code> directly. They call <code>useAuth()</code>, which throws a descriptive error if used outside <code>AuthProvider</code> — much better than a silent undefined crash.</p>
+          <pre style="font-size:12px;padding:10px 12px"><span class="kw">const</span> { user, login, logout } = <span class="fn">useAuth</span>()
+<span class="cm">// Works in any component inside &lt;AuthProvider&gt;</span></pre>
+        </div>
+        <div class="note">The JWT token is stored in <code>localStorage</code> under a fixed key. If it fails the <code>/auth/me</code> check (expired, revoked, tampered), it is cleared automatically and the user is treated as logged out.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 14 — SRP & Frontend Patterns ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Design Patterns</div>
+      <h2>Single Responsibility — components do one thing, hooks own the logic</h2>
+    </div>
+    <div class="sh-num">14 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2" style="align-items:start">
+      <div class="col">
+        <div class="card" style="padding:16px 18px;border-top:2px solid var(--red)">
+          <div style="font-size:11px;font-weight:700;color:var(--red);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">Without SRP — one large component</div>
+          <ul class="cl">
+            <li>Sidebar knows the user's role and renders different links conditionally</li>
+            <li>Dashboard page fetches data, formats numbers, handles empty states, and renders the layout</li>
+            <li>A nav item change requires editing the Sidebar and every place that renders it</li>
+            <li>Components can't be reused elsewhere because they carry too much context</li>
+          </ul>
+        </div>
+        <div class="card" style="padding:16px 18px;border-top:2px solid var(--green)">
+          <div style="font-size:11px;font-weight:700;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px">With SRP — as built in Creative Hub</div>
+          <ul class="cl">
+            <li><strong>Sidebar</strong> just renders items — <code>useDashboardNav()</code> decides what they are</li>
+            <li><strong>MetricCard</strong> displays a value and label — it knows nothing about projects or briefs</li>
+            <li><strong>StatusPill</strong> colours a status string — one component for all status values across the app</li>
+            <li>Adding a nav item means editing <code>buildNavItems()</code>, not touching any component</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card card-b">
+          <h3>The hook / component split</h3>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="border-color:var(--purple);color:var(--purple);min-width:120px;font-size:12px">useDashboardNav()</div>
+              <span style="color:var(--muted)">→ knows which links exist for each role</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="min-width:120px;font-size:12px">Sidebar</div>
+              <span style="color:var(--muted)">→ maps over items, renders NavLink for each</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="border-color:var(--purple);color:var(--purple);min-width:120px;font-size:12px">useAuth()</div>
+              <span style="color:var(--muted)">→ holds user state and auth functions</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="min-width:120px;font-size:12px">LoginForm</div>
+              <span style="color:var(--muted)">→ calls login(), shows error if it throws</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="border-color:var(--purple);color:var(--purple);min-width:120px;font-size:12px">useRoleArea()</div>
+              <span style="color:var(--muted)">→ derives current area from URL</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+              <div class="fbox" style="min-width:120px;font-size:12px">DashboardLayout</div>
+              <span style="color:var(--muted)">→ renders Sidebar + Outlet, nothing else</span>
+            </div>
+          </div>
+        </div>
+        <div class="note">This structure mirrors what Vue calls Composables, what React calls custom hooks — extract the "what" into a hook, keep the "how it looks" in the component. Follows the SRP requirement from the project spec directly.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════ 15 — Summary ════ -->
+<section class="slide">
+  <div class="sh">
+    <div class="sh-left">
+      <div class="eyebrow">Summary</div>
+      <h2>The architectural decisions that hold it all together</h2>
+    </div>
+    <div class="sh-num">15 / 15</div>
+  </div>
+  <div class="sb">
+    <div class="g2">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="sr"><div class="sn">1</div><p><strong>TypeScript end-to-end</strong> — <code>InferSchemaType</code> on Mongoose schemas. Types flow from DB schema → API response → React hook → component. One source of truth.</p></div>
+        <div class="sr"><div class="sn">2</div><p><strong>Layered auth</strong> — bcrypt on passwords, JWT for stateless tokens, <code>requireAuth</code> re-checks the database on every call, <code>requireProjectAccess</code> enforces workspace membership per project.</p></div>
+        <div class="sr"><div class="sn">3</div><p><strong>Zod before every controller</strong> — <code>validateBody</code> middleware rejects bad input early. <code>req.body</code> is always clean, coerced, and typed. <code>.partial()</code> reuses schemas for PATCH routes.</p></div>
+        <div class="sr"><div class="sn">4</div><p><strong>5-layer security</strong> — Helmet headers, CORS whitelist, two rate limiters (API 600/15m, auth 20/15m), NoSQL sanitizer, Zod per-route. Order is deliberate.</p></div>
+        <div class="sr"><div class="sn">5</div><p><strong>Auto project creation</strong> — brief submission instantly creates a draft project + 4 Kanban columns + client as lead. Designer acceptance moves it to in_progress. No admin step.</p></div>
+        <div class="sr"><div class="sn">6</div><p><strong>SRP throughout</strong> — hooks own logic, components own rendering, context owns shared state. Sub-router pattern on the backend mirrors this: one middleware, many routes.</p></div>
+      </div>
+      <div class="col">
+        <div class="card card-g">
+          <h3>Full API surface</h3>
+          <div style="font-family:monospace;font-size:12.5px;line-height:2;color:var(--muted)">
+            <div><span style="color:var(--green)">POST</span>   /api/auth/register &amp; /login</div>
+            <div><span style="color:var(--blue)">GET</span>    /api/auth/me</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/briefs · POST /:id/accept</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects/:id/columns</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects/:id/tasks</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects/:id/members</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects/:id/assets</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/projects/:id/feedback</div>
+            <div><span style="color:var(--amber)">CRUD</span>   /api/invoices</div>
+            <div><span style="color:var(--blue)">GET</span>    /api/docs  <span style="color:var(--muted);font-size:11px">← Swagger UI</span></div>
+          </div>
+        </div>
+        <div class="info">Every endpoint is documented in Swagger at <code>/api/docs</code> — interactive UI with request schemas, required fields, and response examples for every route.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</div>
+
+<div id="nav">
+  <button class="btn" id="bp" disabled>&#8249;</button>
+  <div id="ctr">1 / 15</div>
+  <button class="btn" id="bn">&#8250;</button>
+</div>
+<div id="hint">← → to navigate</div>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')];
+const total  = slides.length;
+let cur = 0;
+
+const bar = document.getElementById('bar');
+const ctr = document.getElementById('ctr');
+const bp  = document.getElementById('bp');
+const bn  = document.getElementById('bn');
+
+function go(n) {
+  if (n < 0 || n >= total) return;
+  slides[cur].classList.remove('active');
+  cur = n;
+  slides[cur].classList.add('active');
+  bar.style.width = ((cur + 1) / total * 100) + '%';
+  ctr.textContent = (cur + 1) + ' / ' + total;
+  bp.disabled = cur === 0;
+  bn.disabled = cur === total - 1;
+}
+
+bp.addEventListener('click', () => go(cur - 1));
+bn.addEventListener('click', () => go(cur + 1));
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+  if (e.key === 'ArrowLeft')                   { e.preventDefault(); go(cur - 1); }
+  if (e.key === 'Home') go(0);
+  if (e.key === 'End')  go(total - 1);
+});
+
+let tx = 0;
+document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+document.addEventListener('touchend',   e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  if (Math.abs(dx) > 50) go(dx < 0 ? cur + 1 : cur - 1);
+});
+
+bar.style.width = (1 / total * 100) + '%';
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+window.addEventListener('load', function () {
+(function () {
+  const mount = document.getElementById('cube-mount');
+  if (!mount || typeof THREE === 'undefined') return;
+
+  const scene    = new THREE.Scene();
+  const camera   = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(0, 0, 7);
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  const el = renderer.domElement;
+  el.style.position = 'absolute';
+  el.style.top      = '0';
+  el.style.left     = '0';
+  el.style.width    = '100%';
+  el.style.height   = '100%';
+  mount.appendChild(el);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const cubeMaterials = [
+    new THREE.MeshStandardMaterial({ color: 0x3525cd, roughness: 0.45, metalness: 0.08 }),
+    new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.50, metalness: 0.08 }),
+    new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.45, metalness: 0.06 }),
+    new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.50, metalness: 0.05 }),
+    new THREE.MeshStandardMaterial({ color: 0xe2dfff, roughness: 0.35, metalness: 0.04 }),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.40, metalness: 0.02 }),
+  ];
+
+  const cube  = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.35, 2.35, 8, 8, 8), cubeMaterials);
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(cube.geometry),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
+  );
+  group.add(cube);
+  group.add(edges);
+
+  const orbitGroup    = new THREE.Group();
+  const accentMat     = new THREE.MeshStandardMaterial({ color: 0x6cf8bb, roughness: 0.35, metalness: 0.06, transparent: true, opacity: 0.9 });
+  const accentGeo     = new THREE.IcosahedronGeometry(0.22, 1);
+  for (let i = 0; i < 8; i++) {
+    const a    = (i / 8) * Math.PI * 2;
+    const item = new THREE.Mesh(accentGeo, accentMat);
+    item.position.set(Math.cos(a) * 3.1, Math.sin(a) * 1.55, Math.sin(a * 1.5) * 0.6);
+    orbitGroup.add(item);
+  }
+  group.add(orbitGroup);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 1.8));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2);
+  key.position.set(4, 5, 6);
+  scene.add(key);
+  const vl = new THREE.PointLight(0x4f46e5, 18, 8);
+  vl.position.set(-3, 2, 3);
+  scene.add(vl);
+  const ml = new THREE.PointLight(0x10b981, 12, 7);
+  ml.position.set(3, -2, 2);
+  scene.add(ml);
+
+  const ptr = { x: 0, y: 0 };
+  mount.addEventListener('pointermove', e => {
+    const r = mount.getBoundingClientRect();
+    ptr.x = ((e.clientX - r.left)  / r.width  - 0.5) * 0.5;
+    ptr.y = ((e.clientY - r.top)   / r.height - 0.5) * 0.5;
+  });
+
+  function resize() {
+    const w = mount.offsetWidth  || window.innerWidth  * 0.52;
+    const h = mount.offsetHeight || window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h || 1;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const clock = new THREE.Clock();
+  (function animate() {
+    const t = clock.getElapsedTime();
+    cube.rotation.x         = t * 0.32 + ptr.y;
+    cube.rotation.y         = t * 0.45 + ptr.x;
+    edges.rotation.copy(cube.rotation);
+    orbitGroup.rotation.z   = t * 0.22;
+    orbitGroup.rotation.y   = t * 0.16;
+    group.rotation.z        = Math.sin(t * 0.35) * 0.08;
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  })();
+})();
+});
+</script>
+</body>
+</html>
